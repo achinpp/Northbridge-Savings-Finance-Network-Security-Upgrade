@@ -1,0 +1,11 @@
+# Course material - not redistributed
+00_Brief/
+*.pdf
+
+# Raw device configuration scripts - kept local
+configs/
+**/configs/
+
+# Packet Tracer scratch
+*.pkt.bak
+*~
