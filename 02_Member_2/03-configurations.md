@@ -131,6 +131,16 @@ interface range FastEthernet0/13-24
  description UNUSED - administratively down
  exit
 
+! The second Gigabit uplink is unused too. Gigabit ports are the ones
+! most often missed when hardening unused ports, and the most valuable
+! to an attacker because they are trunk-capable.
+interface GigabitEthernet0/2
+ switchport mode access
+ switchport access vlan 999
+ shutdown
+ description UNUSED - administratively down
+ exit
+
 ! --- trunk to the router, with an explicit allowed list ---
 interface GigabitEthernet0/1
  switchport mode trunk
@@ -200,9 +210,9 @@ ip access-list extended STAFF-IN
  permit tcp 10.10.10.0 0.0.0.255 host 10.10.20.10 eq 1521
  permit tcp 10.10.10.0 0.0.0.255 host 10.10.20.11 eq 443
  remark Deny all other access to the core banking zone
- deny   ip 10.10.10.0 0.0.0.255 10.10.20.0 0.0.0.255 log
+ deny   ip 10.10.10.0 0.0.0.255 10.10.20.0 0.0.0.255
  remark Staff must never reach the management network
- deny   ip 10.10.10.0 0.0.0.255 10.10.99.0 0.0.0.255 log
+ deny   ip 10.10.10.0 0.0.0.255 10.10.99.0 0.0.0.255
  remark Internet and everything else
  permit ip 10.10.10.0 0.0.0.255 any
  exit
@@ -211,17 +221,17 @@ ip access-list extended STAFF-IN
 ip access-list extended GUEST-IN
  permit udp any any eq 53
  permit udp any any eq 67
- deny   ip 10.10.40.0 0.0.0.255 10.0.0.0 0.255.255.255 log
- deny   ip 10.10.40.0 0.0.0.255 192.168.0.0 0.0.255.255 log
+ deny   ip 10.10.40.0 0.0.0.255 10.0.0.0 0.255.255.255
+ deny   ip 10.10.40.0 0.0.0.255 192.168.0.0 0.0.255.255
  permit ip 10.10.40.0 0.0.0.255 any
  exit
 
 ! --- DMZ: may reach the app server, may not initiate anywhere else ---
 ip access-list extended DMZ-IN
  permit tcp host 10.10.30.10 host 10.10.20.11 eq 443
- deny   ip 10.10.30.0 0.0.0.255 10.0.0.0 0.255.255.255 log
- deny   ip 10.10.30.0 0.0.0.255 192.168.0.0 0.0.255.255 log
- deny   ip any any log
+ deny   ip 10.10.30.0 0.0.0.255 10.0.0.0 0.255.255.255
+ deny   ip 10.10.30.0 0.0.0.255 192.168.0.0 0.0.255.255
+ deny   ip any any
  exit
 
 ! --- CORE-BANKING: servers reply, they do not initiate inwards ---
@@ -229,9 +239,9 @@ ip access-list extended CORE-IN
  permit tcp 10.10.20.0 0.0.0.255 any established
  permit udp any any eq 53
  permit ip 10.10.20.0 0.0.0.255 host 10.10.99.11
- deny   ip 10.10.20.0 0.0.0.255 10.10.10.0 0.0.0.255 log
- deny   ip 10.10.20.0 0.0.0.255 10.10.40.0 0.0.0.255 log
- deny   ip any any log
+ deny   ip 10.10.20.0 0.0.0.255 10.10.10.0 0.0.0.255
+ deny   ip 10.10.20.0 0.0.0.255 10.10.40.0 0.0.0.255
+ deny   ip any any
  exit
 
 ! --- apply inbound on each subinterface, closest to the source ---
@@ -272,7 +282,7 @@ write memory
 | 7 | **Positive test:** from `PC-HQ1` (10.10.10.50), `telnet 10.10.20.10 1521` | Connects — the permitted application flow still works |
 | 8 | **Negative test (the key shot):** from `PC-HQ1`, `ping 10.10.20.10` | **Fails.** ICMP is not in the permit list, so the implicit deny catches it. This proves default-deny is in force rather than assumed |
 | 9 | **Negative test:** from `PC-GUEST` (10.10.40.50), `ping 10.10.20.10` and `ping 10.10.10.50` | Both fail — guest cannot reach core banking or staff |
-| 10 | `show access-lists` again, immediately after the failed tests | **Match counters on the `deny ... log` lines have incremented.** This is the single most valuable screenshot in the configuration: it shows the ACL actively denying real traffic, not merely existing in the configuration |
+| 10 | `show access-lists` again, immediately after the failed tests | **Match counters on the explicit `deny` lines have incremented.** This is the single most valuable screenshot in the configuration: it shows the ACL actively denying real traffic, not merely existing in the configuration |
 
 > Step 10 is the difference between "Good" and "Excellent" on this rubric row. A screenshot of
 > `show access-lists` taken before any traffic shows zero matches and proves nothing about
