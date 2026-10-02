@@ -63,7 +63,13 @@ aaa new-model
 tacacs-server host 10.10.99.10 key NBtac$2026
 
 ! --- define the RADIUS server (network access / 802.1X / VPN) ---
-radius-server host 10.10.99.10 auth-port 1645 acct-port 1646 key NBrad$2026
+! The legacy one-line "radius-server host ..." form is rejected by
+! Packet Tracer 8.2; the named-server form below is required, and is
+! the correct syntax on current IOS regardless.
+radius server NB-RAD
+ address ipv4 10.10.99.10 auth-port 1645 acct-port 1646
+ key NBrad$2026
+ exit
 
 ! --- authentication: try TACACS+, fall back to the local database ---
 aaa authentication login default group tacacs+ local
@@ -102,8 +108,15 @@ command-then-verify pattern used in the lab guides.
 |---|---|---|
 | 1 | `show running-config \| include aaa` | Every `aaa` line present, with `group tacacs+ local` on the authentication line |
 | 2 | `show running-config \| include tacacs\|radius` | Both server hosts at 10.10.99.10 with keys present (encrypted if `service password-encryption` is on) |
-| 3 | `show tacacs` | Server 10.10.99.10 listed; socket opens and closes reported |
-| 4 | `show radius statistics` | Access-request / access-accept counters incrementing after a test login |
+| 3 | `show aaa sessions` | The active AAA session listed by user name — e.g. `alice.perera`, an account held only on the AAA server |
+| 4 | `show aaa user all` | `Authen: service=LOGIN type=ASCII method=TACACS` — the router stating the login was authenticated by TACACS+ rather than by the local database |
+
+> **Packet Tracer 8.2 does not implement `show tacacs`, `show radius statistics` or
+> `show aaa servers`.** The two commands above are used instead, and are arguably better
+> evidence: `show tacacs` reports only socket counters, whereas `method=TACACS` names the
+> authentication path actually taken. On production IOS, `show tacacs` would additionally
+> report socket open/close counts per server, and `show aaa servers` per-server request,
+> accept and reject counters.
 | 5 | **Live test:** from `PC-ADMIN`, `ssh -l alice.perera 10.10.1.1` | Login succeeds using a user that exists **only on the AAA server**, never in the router's local config — this is the proof that central AAA is actually in force |
 | 6 | **Negative test:** attempt login with a user that exists nowhere | Rejected, and the rejection is recorded on the AAA server |
 | 7 | **Fallback test:** shut `AAA-SRV`'s interface, then log in as `netadmin` | Login succeeds via the local database, proving the fallback path works |
