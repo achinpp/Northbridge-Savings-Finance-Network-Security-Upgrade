@@ -80,12 +80,12 @@ aaa accounting commands 15 default start-stop group tacacs+
 ! --- apply to the management lines ---
 line console 0
  login authentication default
- exec-timeout 10 0
+ exec-timeout 5 0
  logging synchronous
  exit
 line vty 0 4
  login authentication default
- exec-timeout 10 0
+ exec-timeout 5 0
  transport input ssh
  exit
 
@@ -116,7 +116,7 @@ command-then-verify pattern used in the lab guides.
 ### AAA server setup (on `AAA-SRV`, Packet Tracer Server device)
 
 1. Services → **AAA** → Service **On**.
-2. Network Configuration: add client `HQ-R1`, Client IP `10.10.1.1`, Secret `NBtac$2026`,
+2. Network Configuration: add client `HQ-R1`, Client IP `10.10.99.1`, Secret `NBtac$2026`,
    ServerType **TACACS**. Add a second entry for RADIUS with secret `NBrad$2026`.
 3. User Setup: add `alice.perera` / `Str0ng-Pass-1`, and a second user `bob.silva` /
    `Str0ng-Pass-2` so the accounting records show two distinguishable identities.
@@ -192,7 +192,7 @@ ip ssh authentication-retries 2
 ! --- restrict which source addresses may even attempt management ---
 ip access-list standard MGMT-HOSTS
  permit 10.10.99.0 0.0.0.255
- deny any log
+ deny any
  exit
 
 ! --- brute-force throttling ---
@@ -214,19 +214,18 @@ line vty 0 4
  login local
  transport input ssh
  access-class MGMT-HOSTS in
- exec-timeout 10 0
+ exec-timeout 5 0
  logging synchronous
  exit
 
 line console 0
- exec-timeout 10 0
+ exec-timeout 5 0
  logging synchronous
  exit
 
 ! --- shut the unused aux line ---
 line aux 0
  no exec
- transport input none
  exit
 
 end
@@ -239,7 +238,7 @@ write memory
 |---|---|---|
 | 1 | `show ip ssh` | `SSH Enabled - version 2.0`, authentication retries 2, timeout 60 |
 | 2 | `show crypto key mypubkey rsa` | An RSA key pair named `HQ-R1.northbridge.lk`, 1024 bits or more |
-| 3 | `show running-config \| begin line vty` | `transport input ssh`, `access-class MGMT-HOSTS in`, `exec-timeout 10 0` |
+| 3 | `show running-config \| begin line vty` | `transport input ssh`, `access-class MGMT-HOSTS in`, `exec-timeout 5 0` |
 | 4 | `show access-lists MGMT-HOSTS` | The permit for 10.10.99.0/24 and the logged deny |
 | 5 | **Positive test:** from `PC-ADMIN` (10.10.99.x), `ssh -l netadmin 10.10.1.1` | Banner displays, login succeeds |
 | 6 | **Negative test:** from the same PC, `telnet 10.10.1.1` | Connection refused — proves Telnet is genuinely disabled, not merely unused |
