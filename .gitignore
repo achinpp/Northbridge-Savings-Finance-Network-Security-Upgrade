@@ -9,3 +9,6 @@ configs/
 # Packet Tracer scratch
 *.pkt.bak
 *~
+
+# Generated submission document - rebuild with 07_Final_Report/build_report.py
+IE3122-Northbridge-Report.docx
