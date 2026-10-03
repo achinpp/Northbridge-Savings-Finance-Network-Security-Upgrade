@@ -55,7 +55,7 @@ kept genuinely separate rather than blended.
 | 4 | 2 | Switchport port security (sticky MAC + violation shutdown) | No (free choice) | — |
 | 5 | 3 | Internet edge firewall — static PAT + default-deny edge ACL | **Yes** | Control 5 + 18 — addresses T5, T6 |
 | 6 | 3 | DHCP snooping + Dynamic ARP Inspection | No (free choice) | — |
-| 7 | 4 | Site-to-site IPsec VPN, head office ↔ branch | **Yes** | Control 12 — addresses T4 |
+| 7 | 4 | NetFlow export — flow-based behavioural detection | **Yes** | Control 7 — addresses T3, T7, T8 |
 | 8 | 4 | Centralised syslog + NTP time synchronisation | No (free choice) | — |
 
 ### Technology proposals — 16 individual, 4 group selections

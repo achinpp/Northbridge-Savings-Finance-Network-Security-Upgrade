@@ -129,19 +129,22 @@ rejected, and the `securityk9` licence command is a no-op). See the configuratio
 | 3.20 ★★ | `HQ-SW1` | `show ip dhcp snooping` (again) | Drop counters **incremented** on the untrusted interface |
 | 3.21 ★ | `HQ-SW1` | `show ip arp inspection` (again) | `Dropped` counter non-zero |
 
-## Member 4 — Configuration 7: Site-to-site IPsec VPN
+## Member 4 — Configuration 7: NetFlow export (flow-based behavioural detection)
+
+Substituted for the intended site-to-site IPsec VPN: Packet Tracer 8.2 on the ISR 2911 has no
+cryptographic feature set (`crypto isakmp policy 10` is rejected on the `crypto` keyword, and
+`license ?` offers only `boot`, with no activation path). See the configuration write-up.
 
 | Shot | Where | Command | Must show |
 |---|---|---|---|
-| 4.1 | `HQ-R1` | `show crypto isakmp policy` | AES-256, SHA-256, pre-share, DH **group 14** |
-| 4.2 | `HQ-R1` | `show crypto ipsec transform-set` | `esp-aes 256`, `esp-sha-hmac`, tunnel mode |
-| 4.3 | `HQ-R1` | `show crypto map` | Peer, transform set, `match address VPN-TRAFFIC`, applied to Gi0/2 |
-| 4.4 | `PC-BR1` | `ping 10.10.10.50` | First one or two time out during negotiation, then succeed — **capture this and explain it** |
-| 4.5 | `HQ-R1` | `show crypto isakmp sa` | Phase 1 SA in state **`QM_IDLE`**, status `ACTIVE` |
-| 4.6 ★★ | `HQ-R1` | `show crypto ipsec sa` | Proxy identities, SPIs, and **non-zero `#pkts encaps` / `#pkts decaps`** — the proof traffic is actually encrypted |
-| 4.7 | `HQ-R1` | `show access-lists VPN-TRAFFIC` | Match counters incremented |
-| 4.8 ★ | `PC-BR1` | `ping 10.10.40.50` (not in the crypto ACL), then `show crypto ipsec sa` | Encap counters **do not increase** for that flow — the tunnel carries only defined traffic |
-| 4.9 ★★ | Simulation Mode | Ping `PC-BR1` → 10.10.10.50, open the PDU **on the WAN link** | **ESP header with encrypted payload.** The strongest evidence available and unique to Packet Tracer — do not skip it |
+| 4.1 | `HQ-R1` | `crypto isakmp policy 10` and `license ?` | **The rejections.** Evidence for the documented substitution |
+| 4.2 | `HQ-R1` | The configuration being entered | Export destination, version, source, and `ip flow ingress` on each interface |
+| 4.3 | `HQ-R1` | `show ip flow export` | Destination `10.10.99.11:2055`, version 9, source `Loopback0` |
+| 4.4 | `HQ-R1` | `show ip flow interface` | Every interface with flow collection enabled |
+| 4.5 ★★ | `HQ-R1` | `show ip cache flow` after normal traffic | Individual flow records — source, destination, protocol, port, packet count |
+| 4.6 | `PC-HQ1` | Ping six different internal hosts in sequence | The reconnaissance pattern being generated |
+| 4.7 ★★ | `HQ-R1` | `show ip cache flow` | **Many records sharing one source, differing destinations** — the fan-out signature of internal reconnaissance |
+| 4.8 ★ | `BR1-R1` | `show ip cache flow` after a ping from `PC-BR1` | Branch visibility with **nothing deployed at the branch** |
 
 ## Member 4 — Configuration 8: Centralised syslog and NTP
 

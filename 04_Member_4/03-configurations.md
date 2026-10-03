@@ -1,234 +1,183 @@
 # Member 4 — Individual Network Hardening Configurations
 
 **Member:** [Member 4 — Full Name / IT Number]
-**Configurations:** #7 Site-to-site IPsec VPN, head office ↔ branch (plan-linked) · #8 Centralised syslog and NTP (free choice)
+**Configurations:** #7 NetFlow export — flow-based behavioural detection (plan-linked) · #8 Centralised syslog and NTP (free choice)
 
 Carried out on the shared group topology in `06_Topology/topology-spec.md`.
-Plain-text scripts: `configs/cfg-7-site-to-site-ipsec.txt`, `configs/cfg-8-syslog-ntp.txt`.
+Plain-text scripts: `configs/cfg-7-netflow-export.txt`, `configs/cfg-8-syslog-ntp.txt`.
 Screenshot sequence: `06_Topology/screenshot-capture-guide.md`, shots 4.1–4.19.
 
 ---
 
-## Configuration 7 — Site-to-site IPsec VPN between head office and Branch 1
+## Configuration 7 — NetFlow export: flow-based behavioural detection
 
-**Devices:** `HQ-R1` and `BR1-R1`, across the WAN link
+**Devices:** `HQ-R1` and `BR1-R1`
+
+### A note on what was intended, and why this differs
+
+Configuration 7 was specified as a **site-to-site IPsec VPN** between head office and Branch 1,
+implementing **Control 12** (cryptographic standard for data in transit).
+
+**Packet Tracer 8.2 on the ISR 2911 has no cryptographic feature set.** Established by direct
+test, not assumed:
+
+| Command | Result |
+|---|---|
+| `crypto isakmp policy 10` | `% Invalid input detected` — the caret falls on `crypto` itself, so the entire command family is absent from the parser |
+| `license boot module c2900 technology-package securityk9` | accepted silently; after **two** reloads `show version` still reports `security / disable / None / None` |
+| `license ?` (config mode) | offers only `boot`. No `accept`, `install` or `right-to-use` — there is no activation path in this build |
+
+The same absence removed Zone-Based Policy Firewall, which is why Member 3's Configuration 5
+was also substituted.
+
+**Control 12 therefore has no configuration demonstrating it**, and that is recorded as a gap
+rather than concealed. The IPsec design remains the recommendation in the group plan and in the
+cryptographic standard; it simply cannot be built on this platform.
+
+### Why NetFlow is the right substitute, not a consolation
+
+The group adopted **Member 4's IDS/IPS proposal (A4.4)**, whose second half specifies exactly
+this: *"NetFlow is exported from the switches and routers Northbridge already owns, at head
+office and at all six branches, into a flow analytics collector that baselines normal behaviour
+and alerts on deviation."*
+
+Configuring it here implements the recommendation the group actually adopted, on the real
+topology — and it tests the proposal's central practical claim, that **branch visibility needs
+no appliance**, because the configuration is applied to `BR1-R1` with nothing deployed at the
+branch.
 
 ### What this configuration achieves
 
-It builds an encrypted, authenticated, integrity-protected tunnel for all traffic between the
-branch LAN and the head-office LAN, so that the branch-to-head-office path no longer depends
-on trusting the carrier.
+It makes the routers record **who talked to whom, when, how much, and for how long**, and
+export those records to a central collector.
 
-Three distinct protections, and it is worth separating them in the report because they map to
-three different attacks:
+The distinction from a signature engine is the whole argument:
 
-1. **Confidentiality** — AES-256 encryption of the payload. Anyone intercepting traffic on the
-   dedicated link, at the carrier, or at any intermediate hop sees ciphertext.
-2. **Integrity** — SHA-256 HMAC on every packet. Traffic cannot be modified in transit without
-   detection, which is the protection against a man-in-the-middle who can see the path but
-   not break the cryptography.
-3. **Peer authentication** — each router proves its identity to the other before any traffic
-   flows. A device that injects itself into the path cannot complete the IKE exchange, so it
-   cannot become a tunnel endpoint.
+- **A signature engine matches known exploits.** It cannot detect an authenticated attacker
+  using legitimate credentials and legitimate protocols — which is what T1, T2, T7 and T8 all
+  produce. There is no signature for *"Alice's account is behaving unlike Alice"*.
+- **Flow records describe behaviour**, and none of it is hidden by encryption. Internal
+  reconnaissance — one host connecting to many hosts in a short window — is the clearest
+  possible signal in flow data, and it appears **before any payload executes**.
 
-The brief states that "branch offices connect back to the head office over dedicated links".
-A dedicated link is a contractual arrangement, not a security control: the traffic still
-crosses a carrier's equipment, is reachable by the carrier's staff, and traverses physical
-infrastructure Northbridge does not own or inspect. For a bank carrying core banking traffic
-over that path, encrypting it is the baseline, and the brief gives no indication it is
-currently encrypted.
+That is the earliest detection point in T3's chain, and it is available from telemetry
+Northbridge can turn on this week.
 
 ### Plan linkage and threats addressed
 
-This implements **Control 12 (cryptographic standard — TLS 1.2+/1.3 and IPsec for data in
-transit)** and supports **Control 5 (zoned network architecture)**, because the tunnel is what
-allows a branch to be treated as an extension of a defined internal zone rather than as an
-untrusted network.
+Implements the flow-based half of **Control 7**, and feeds **Control 8** (the central platform
+that receives both flow records and logs).
 
-- **T4 (rogue DHCP and ARP spoofing man-in-the-middle):** this is the plan-linked threat. T4's
-  attack succeeds by inserting the attacker into the path between a branch workstation and
-  head office, then reading or modifying what passes. IPsec does not stop the attacker
-  capturing the packets — nothing on the wire can — but it makes the captured traffic
-  cryptographically useless, and the integrity check makes modification detectable. Note
-  precisely what this does and does not cover: the tunnel protects traffic **between the two
-  routers**, so an attacker positioned on the branch LAN segment *inside* the tunnel endpoint
-  still sees plaintext. That intra-LAN exposure is what Member 3's DHCP snooping and DAI
-  configuration and Member 2's port security address. Stating this boundary explicitly is
-  important — it shows the control's limit is understood rather than overclaimed.
-- **T3 (ransomware propagation):** supported indirectly. Defining the tunnel with a crypto ACL
-  that names exactly which subnets may communicate means traffic outside that definition is
-  not carried, which is an additional constraint on branch-to-core reachability.
+- **T3 — ransomware propagation.** The detection point. T3's chain runs *foothold → discovery →
+  credential harvesting → lateral movement → detonation*, and the brief states Northbridge is
+  "blind to reconnaissance or active compromise until damage is already visible". The discovery
+  step is a host sweeping the address space, which is the single clearest pattern in flow data.
+- **T7 and T8 — an attacker already inside.** Both produce an actor using valid credentials and
+  normal protocols, on traffic that may never cross a firewall. Flow analysis is the only
+  proposed mechanism that sees that class of activity at all.
 
 ### Command sequence
+
+Full script with comments: `configs/cfg-7-netflow-export.txt`.
 
 **On `HQ-R1`:**
 
 ```
 enable
 configure terminal
-
-! --- security technology package required for crypto ---
-license boot module c2900 technology-package securityk9
-
-! === PHASE 1: IKE policy - how the peers authenticate and
-! === establish the secure channel in which Phase 2 is negotiated
-crypto isakmp policy 10
- encryption aes 256
- hash sha256
- authentication pre-share
- group 14
- lifetime 3600
+ip flow-export destination 10.10.99.11 2055
+ip flow-export version 9
+ip flow-export source Loopback0
+interface GigabitEthernet0/0.10
+ ip flow ingress
  exit
-
-! --- pre-shared key, bound to the specific peer address ---
-crypto isakmp key NB-HQ-BR1-PSK-2026! address 10.10.255.2
-
-! === PHASE 2: transform set - how the data itself is protected
-! ESP for encryption, SHA-HMAC for integrity, tunnel mode
-crypto ipsec transform-set TS-NB-AES256 esp-aes 256 esp-sha-hmac
- mode tunnel
+interface GigabitEthernet0/0.20
+ ip flow ingress
  exit
-
-crypto ipsec security-association lifetime seconds 3600
-
-! === CRYPTO ACL: defines which traffic is "interesting",
-! === i.e. which traffic the tunnel carries.
-! === This must be an exact MIRROR of the ACL on the peer.
-ip access-list extended VPN-TRAFFIC
- remark Branch 1 staff LAN to HQ staff LAN
- permit ip 10.10.10.0 0.0.0.255 192.168.1.0 0.0.0.255
- remark Branch 1 staff LAN to HQ core banking
- permit ip 10.10.20.0 0.0.0.255 192.168.1.0 0.0.0.255
+interface GigabitEthernet0/0.30
+ ip flow ingress
  exit
-
-! === CRYPTO MAP: ties peer, transform set and crypto ACL together
-crypto map CMAP-NB 10 ipsec-isakmp
- description IPsec tunnel to Branch 1
- set peer 10.10.255.2
- set transform-set TS-NB-AES256
- set pfs group14
- match address VPN-TRAFFIC
+interface GigabitEthernet0/0.40
+ ip flow ingress
  exit
-
-! === APPLY to the WAN interface facing the branch
+interface GigabitEthernet0/0.99
+ ip flow ingress
+ exit
+interface GigabitEthernet0/1
+ ip flow ingress
+ ip flow egress
+ exit
 interface GigabitEthernet0/2
- description WAN to BR1-R1
- ip address 10.10.255.1 255.255.255.252
- crypto map CMAP-NB
- no shutdown
+ ip flow ingress
+ ip flow egress
  exit
-
 end
 write memory
 ```
 
-**On `BR1-R1` — the mirror configuration.** Phase 1 and Phase 2 parameters must match
-exactly, the peer address is reversed, and **the crypto ACL is the exact mirror**: source and
-destination swapped.
+**On `BR1-R1` — the point of the whole proposal:**
 
 ```
 enable
 configure terminal
-
-license boot module c2900 technology-package securityk9
-
-crypto isakmp policy 10
- encryption aes 256
- hash sha256
- authentication pre-share
- group 14
- lifetime 3600
+ip flow-export destination 10.10.99.11 2055
+ip flow-export version 9
+ip flow-export source Loopback0
+interface GigabitEthernet0/0.110
+ ip flow ingress
  exit
-
-crypto isakmp key NB-HQ-BR1-PSK-2026! address 10.10.255.1
-
-crypto ipsec transform-set TS-NB-AES256 esp-aes 256 esp-sha-hmac
- mode tunnel
+interface GigabitEthernet0/0.140
+ ip flow ingress
  exit
-
-crypto ipsec security-association lifetime seconds 3600
-
-! MIRRORED crypto ACL - source and destination swapped
-ip access-list extended VPN-TRAFFIC
- permit ip 192.168.1.0 0.0.0.255 10.10.10.0 0.0.0.255
- permit ip 192.168.1.0 0.0.0.255 10.10.20.0 0.0.0.255
- exit
-
-crypto map CMAP-NB 10 ipsec-isakmp
- description IPsec tunnel to Head Office
- set peer 10.10.255.1
- set transform-set TS-NB-AES256
- set pfs group14
- match address VPN-TRAFFIC
- exit
-
 interface GigabitEthernet0/1
- description WAN to HQ-R1
- ip address 10.10.255.2 255.255.255.252
- crypto map CMAP-NB
- no shutdown
+ ip flow ingress
+ ip flow egress
  exit
-
 end
 write memory
 ```
 
-> **The three mistakes that break this configuration, worth naming in the report.**
+> **Nothing is deployed *at* the branch.** No sensor, no SPAN session, no appliance to patch —
+> three configuration lines on a router Northbridge already owns. The brief states Northbridge
+> has six branches, no security staff at any of them, and no formal patch management process. A
+> design requiring hardware at each branch would mean seven appliances to install, manage and
+> patch, and those appliances would themselves become unpatched network-attached devices.
 >
-> 1. **Non-mirrored crypto ACLs.** If one side says `10.10.10.0 → 192.168.1.0` and the other
->    says `192.168.1.0 → 10.10.0.0/16`, Phase 2 fails with a proxy identity mismatch even
->    though Phase 1 came up cleanly. This is the single most common fault.
-> 2. **Mismatched Phase 1 or Phase 2 parameters.** Encryption, hash, DH group and
->    authentication method must agree. A mismatch leaves Phase 1 in `MM_NO_STATE`.
-> 3. **Forgetting to apply the crypto map to the interface.** Everything is configured, nothing
->    is encrypted, and all the `show` commands look plausible until you check
->    `show crypto map`.
+> **Why `ip flow-export source Loopback0`.** Same reasoning as `logging source-interface` in
+> Configuration 8: one device, one address, in every record. Without it the exporter's address
+> changes with the egress interface and the collector cannot attribute records reliably.
 >
-> **Why `group 14` and not `group 2`.** Diffie-Hellman group 2 is a 1024-bit modulus and is no
-> longer considered adequate. Group 14 (2048-bit) is the minimum defensible choice for a
-> financial institution, and choosing it deliberately — rather than accepting the lab default —
-> is worth one sentence in the write-up. Likewise `set pfs group14` enables Perfect Forward
-> Secrecy, so compromise of the pre-shared key does not permit decryption of previously
-> captured sessions.
->
-> **On the pre-shared key.** A PSK is used here because it is what Packet Tracer supports. The
-> production recommendation is **certificate-based peer authentication** from an internal CA:
-> a PSK is a shared secret, and Northbridge's documented problem is shared secrets. This
-> should be stated explicitly in the report — it demonstrates awareness that the lab
-> configuration and the production recommendation differ, and why.
+> **Why ingress on every internal subinterface.** This captures traffic as it *enters* the
+> router from each zone, which is where movement between VLANs becomes visible — the placement
+> that detects T3's propagation.
 
 ### Verification commands and expected output
 
-Traffic must be generated first: IPsec tunnels are built on demand, so until interesting
-traffic matches the crypto ACL there is nothing to show.
-
 | # | Verification command | What the output must show |
 |---|---|---|
-| 1 | **Generate traffic:** from `PC-BR1` (192.168.1.50), `ping 10.10.10.50` | First one or two pings may time out while the tunnel negotiates, then success. **This expected initial loss is itself worth capturing and explaining** |
-| 2 | `show crypto isakmp sa` | Phase 1 SA in state **`QM_IDLE`** with `ACTIVE` status. Anything else (`MM_NO_STATE`, `MM_KEY_EXCH`) means Phase 1 did not complete |
-| 3 | `show crypto ipsec sa` | Phase 2 SAs with the local and remote proxy identities, the inbound and outbound SPIs, and — critically — **non-zero `#pkts encaps` and `#pkts decaps` counters**. These counters are the proof that traffic is actually being encrypted, not merely that a tunnel exists |
-| 4 | `show crypto map` | The crypto map with its peer, transform set and `match address VPN-TRAFFIC`, and confirmation that it is applied to the WAN interface |
-| 5 | `show crypto ipsec transform-set` | `esp-aes 256`, `esp-sha-hmac`, tunnel mode |
-| 6 | `show crypto isakmp policy` | AES-256, SHA-256, pre-share, DH group 14 |
-| 7 | `show access-lists VPN-TRAFFIC` | Match counters incremented by the test traffic |
-| 8 | **Negative test:** from `PC-BR1`, ping a destination **not** in the crypto ACL (for example `10.10.40.50`, the guest VLAN) | Traffic is not encrypted. `show crypto ipsec sa` encap counters do not increase for that flow — proving the tunnel carries only the defined traffic |
-| 9 | **Packet-level proof:** Packet Tracer **Simulation Mode**, send a ping from `PC-BR1` to `10.10.10.50`, open the PDU on the WAN link and inspect it | The inbound PDU shows the original IP header; the PDU on the WAN link shows an **ESP header with an encrypted payload**. This is the strongest possible evidence and is unique to Packet Tracer — take it |
+| 1 | `show ip flow export` | Destination `10.10.99.11` port 2055, version 9, source `Loopback0`, and the export counters |
+| 2 | `show ip flow interface` | Every interface with flow collection enabled, and whether ingress, egress or both |
+| 3 | `show ip cache flow` **before traffic** | A largely empty flow cache — the "before" half of the pair |
+| 4 | **Generate normal traffic:** from `PC-HQ1`, `ping 10.10.20.11` and browse `https://10.10.20.11` | — |
+| 5 | `show ip cache flow` | Individual flow records with source, destination, protocol, port and packet count. The router is recording who talked to whom, with **no agent on any endpoint and no signature database** |
+| 6 | **Generate a reconnaissance pattern:** from `PC-HQ1`, ping `10.10.20.10`, `10.10.20.11`, `10.10.30.10`, `10.10.99.10`, `10.10.99.11`, `10.10.40.50` in sequence | — |
+| 7 | `show ip cache flow` | **Many flow records sharing one source address with differing destinations.** That fan-out is exactly what a flow analytics collector baselines against, and it is the signature of internal reconnaissance in T3's chain |
+| 8 | `show ip cache flow` on `BR1-R1`, after a ping from `PC-BR1` | Branch flow records — visibility at a site where nothing was deployed |
 
-> Shot 3 and shot 9 are the two that earn the marks. Shot 3's `#pkts encaps` counter proves
-> traffic is being encrypted; shot 9 shows the encrypted packet itself. A screenshot of
-> `show crypto isakmp sa` alone proves only that two routers agreed to talk.
+> **Steps 5 and 7 carry the marks.** Step 7 in particular: note what is *not* required to see
+> the pattern — no malware signature, no agent on the endpoint, no decryption. It is visible in
+> metadata alone, which is precisely why the technique works against an attacker using
+> legitimate credentials and encrypted protocols.
 
-### Packet Tracer requirements and limitations
+### Packet Tracer limitations
 
 | Item | Note |
 |---|---|
-| Router model | ISR 2911 or similar with `securityk9`. Crypto is unavailable on the 1941 in some PT versions |
-| `encryption aes 256` | If rejected, use `encryption aes 192` or `aes`, and note the substitution |
-| `hash sha256` | Older PT images support only `hash sha`. Use `sha` and state that SHA-256 is the production recommendation |
-| `group 14` | If rejected, `group 5` (1536-bit) is the next best; avoid `group 2` and say why |
-| `set pfs group14` | Omit if rejected; note PFS as a production requirement |
-| `crypto ipsec security-association lifetime` | Usually supported; omit if not |
-| Routing | A route to the far-side LAN must exist **before** the tunnel will come up. Add static routes on both routers, or the crypto ACL will never match |
+| Crypto / IPsec | Entirely absent; see the table above |
+| `ip flow-export version 9` | If rejected, use `version 5` and note the substitution |
+| `ip flow-export source` | If rejected, omit — records are then sourced from the egress interface. Note it as a production requirement |
+| `ip flow egress` | Support is less consistent than `ip flow ingress`. Ingress on every interface still captures every flow once |
+| No collector | Packet Tracer has no NetFlow collector service, so records cannot be shown *arriving* at `SYSLOG-SRV`. The evidence is the router's own flow cache — which is the data that would be exported |
 
 ---
 

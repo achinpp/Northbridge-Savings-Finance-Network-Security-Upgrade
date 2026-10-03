@@ -27,7 +27,7 @@ back to the step that produced it, and back to the plain-text script in that mem
 | `M2-cfg4-port-security/` | 2 | Switchport port security | Free choice |
 | `M3-cfg5-edge-firewall/` | 3 | Internet edge firewall (static PAT + edge ACL) | **Plan-linked** |
 | `M3-cfg6-dhcp-snoop-dai/` | 3 | DHCP snooping and Dynamic ARP Inspection | Free choice |
-| `M4-cfg7-ipsec/` | 4 | Site-to-site IPsec VPN | **Plan-linked** |
+| `M4-cfg7-netflow/` | 4 | NetFlow export (flow-based detection) | **Plan-linked** |
 | `M4-cfg8-syslog-ntp/` | 4 | Centralised syslog and NTP | Free choice |
 
 ## `00-BEFORE/` — why it exists
@@ -60,8 +60,8 @@ runs short, these are the minimum that evidence each configuration as working.
 | 3.9 | M3 — Edge FW | Edge ACL deny counters incremented by refused traffic |
 | 3.19 | M3 — DHCP snooping | Rogue DHCP server present and failing |
 | 3.20 | M3 — DHCP snooping | Snooping drop counters incremented |
-| 4.6 | M4 — IPsec | `#pkts encaps` non-zero — traffic genuinely encrypted |
-| 4.9 | M4 — IPsec | ESP header visible in Simulation Mode |
+| 4.5 | M4 — NetFlow | Flow cache recording real sessions |
+| 4.7 | M4 — NetFlow | Reconnaissance fan-out: one source, many destinations |
 | 4.16 | M4 — Syslog | Messages arriving with correct source and timestamp |
 | 4.19 | M4 — Syslog | Two devices' events in one ordered timeline |
 

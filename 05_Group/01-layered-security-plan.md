@@ -252,7 +252,12 @@ AES-256, SHA-256 and DH group 14 or better for all site-to-site branch links and
 integration; encryption at rest for the core banking database, its backups and all endpoint
 disks. Certificate-based authentication preferred over pre-shared keys. Key management and
 rotation documented.
-*Implemented by Configuration 7 (Member 4).*
+*No Packet Tracer configuration demonstrates this control. The platform used for the practical
+work has no cryptographic feature set — `crypto isakmp` is absent from the parser and the
+`securityk9` package cannot be activated, as evidenced in Member 4's Configuration 7 write-up.
+The control stands as a recommendation; it is recorded here as the one control in the plan with
+no implementation evidence behind it.*
+*Flow-based half implemented by Configuration 7 (Member 4) on HQ-R1 and BR1-R1.*
 
 **Control 13 — Endpoint protection and EDR, with a BYOD baseline**
 Managed endpoint detection and response on all Northbridge-owned endpoints and servers, with

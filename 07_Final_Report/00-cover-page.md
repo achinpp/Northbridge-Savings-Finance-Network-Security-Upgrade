@@ -87,8 +87,8 @@ Maximum marks: 100 · Contribution to final grade: 30%
   Policy Manager. Architecture — two firewall tiers plus identity-based micro-segmentation
   inside the core. IDS/IPS — inline Firepower IPS plus flow-based behavioural detection from
   existing switch NetFlow.
-- **Hardening configurations (Section 8.4):** **Configuration 7 (plan-linked)** — site-to-site
-  IPsec VPN between head office and Branch 1, implementing Control 12. **Configuration 8 (free
+- **Hardening configurations (Section 8.4):** **Configuration 7 (plan-linked)** — NetFlow export
+  on HQ-R1 and BR1-R1, implementing the flow-based half of Control 7. **Configuration 8 (free
   choice)** — centralised syslog and NTP time synchronisation.
 - **Proposals adopted by the group:** IDS/IPS. Also adopted: the monitor-mode discovery period
   before 802.1X enforcement, and the explicit naming of the east-west visibility gap in the
