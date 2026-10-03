@@ -129,7 +129,7 @@ ip access-list extended EDGE-IN
  permit udp any eq 53 any
  permit icmp any any echo-reply
  permit icmp any any unreachable
- permit icmp any any time-exceeded
+! permit icmp any any time-exceeded   <- REJECTED by Packet Tracer 8.2
  remark No path from the internet to any internal network
  deny   ip any 10.10.0.0 0.0.255.255
  remark Default deny

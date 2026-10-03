@@ -229,6 +229,13 @@ ip access-list extended GUEST-IN
 ! --- DMZ: may reach the app server, may not initiate anywhere else ---
 ip access-list extended DMZ-IN
  permit tcp host 10.10.30.10 host 10.10.20.11 eq 443
+ remark Portal may REPLY to sessions others initiated (ACK or RST set).
+ remark Required once Member 3's Configuration 5 publishes the portal to
+ remark the internet: without state, this ACL cannot distinguish a reply
+ remark from an initiation, so it would otherwise drop the portal's own
+ remark responses to internet clients. A stateful firewall would permit
+ remark them automatically from its session table.
+ permit tcp host 10.10.30.10 any established
  deny   ip 10.10.30.0 0.0.0.255 10.0.0.0 0.255.255.255
  deny   ip 10.10.30.0 0.0.0.255 192.168.0.0 0.0.255.255
  deny   ip any any
