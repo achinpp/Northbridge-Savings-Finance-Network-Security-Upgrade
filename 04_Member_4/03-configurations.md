@@ -5,7 +5,7 @@
 
 Carried out on the shared group topology in `06_Topology/topology-spec.md`.
 Plain-text scripts: `configs/cfg-7-netflow-export.txt`, `configs/cfg-8-syslog-ntp.txt`.
-Screenshot sequence: `06_Topology/screenshot-capture-guide.md`, shots 4.1–4.19.
+Screenshot sequence: `06_Topology/screenshot-capture-guide.md`, shots 4.1–4.19 (Configuration 7 uses 4.1–4.8, Configuration 8 uses 4.10–4.19).
 
 ---
 

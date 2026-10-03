@@ -129,20 +129,59 @@ Against the brief's own submission requirements:
 - [ ] All placeholders replaced
 - [ ] All four members confirmed for the viva
 
-## 5. Known gaps in this package
+## 5. Status — what is done and what remains
 
-Stated plainly so nothing is assumed complete that is not:
+### Done
 
-1. **Screenshots are not produced.** All eight configuration scripts, their verification
-   sequences and a 77-shot capture guide are written, but the screenshots themselves require
-   Packet Tracer and must be taken by hand.
-2. **The `.pkt` file is not built.** `06_Topology/topology-spec.md` fully specifies it —
-   devices, models, VLANs, addressing, routing, DHCP and build order — but the file has to be
-   assembled in Packet Tracer.
-3. **Member names and IT numbers are placeholders.**
-4. **MAC addresses in two configurations are placeholders** (`0001.AAAA.0010` and similar).
-   Either replace them with the values from your build, or set each server's MAC manually in
-   Packet Tracer to match, which is quicker. See §6 of the topology spec.
-5. **Command substitutions are unverified.** Each configuration lists the commands most likely
-   to be rejected by Packet Tracer along with substitutions, but which ones your specific
-   version accepts can only be established by typing them.
+- **The `.pkt` topology is built and verified.** 18 devices, 17 cables, full baseline
+  connectivity confirmed before any control was applied. Saved as `Northbridge-NS.pkt`, with
+  `Northbridge-NS-baseline.pkt` as a pre-control rollback point.
+- **All eight configurations applied and evidenced.** 90 screenshots in `08_Screenshots/`,
+  organised one folder per configuration, named by shot number so each traces back to the
+  capture guide and to the plain-text script.
+- **All scripts reconciled with what was actually typed.** Every command Packet Tracer
+  rejected has been removed or substituted in both the `.txt` script and the member's
+  write-up, with the limitation and the production equivalent documented. This matters: the
+  brief asks for "the exact syntax used".
+
+### Remaining
+
+1. **Member names and IT numbers are placeholders.** `grep -rn "\[Member" .` finds all 15
+   files. This is the only item that *must* be done.
+2. **Assemble the report** per §1 of this file and work through the checklist in §4.
+3. **Write the executive summary** last, per §3.
+
+## 6. Three things to say explicitly in the report
+
+These are strengths if stated, and weaknesses if a marker finds them first.
+
+### Two configurations were substituted, and why
+
+Packet Tracer 8.2 on the ISR 2911 has **no stateful firewall and no cryptography** — `zone
+security`, `ip inspect`, reflexive ACLs and `crypto` are all absent from the parser, and
+`license ?` exposes no activation path for `securityk9`. Configuration 5 became a NAT + edge-ACL
+perimeter firewall; Configuration 7 became NetFlow export. Both substitutions are documented in
+the member write-ups with what each costs, and six screenshots evidence the limitations
+directly.
+
+**Control 12 (encryption in transit) therefore has no implementing configuration.** The layered
+security plan records this as the one control with no implementation evidence behind it.
+
+### The stateless-ACL limitation was demonstrated, not just described
+
+Publishing the banking portal through static PAT caused it to time out, because Member 2's
+`DMZ-IN` list ends in `deny ip any any` and — with no state table — could not distinguish the
+portal's *reply* from an *initiation*. Fixed with `permit tcp host 10.10.30.10 any established`.
+Shot `3.7a` captures the failure, `3.7` the success. That pair is the measurable cost of losing
+stateful inspection, shown live.
+
+### Three defects were found during testing and recorded as findings
+
+| Found | Where it is recorded |
+|---|---|
+| `Gig0/2` left enabled in VLAN 1 — unused-port hardening covered only `Fa0/13–24` | Member 2 Configuration 3 |
+| `BR1-R1` completely unauthenticated — Controls 1, 2, 3 and 9 applied to `HQ-R1` only | Layered security plan §2b |
+| All three switches had no management IP, so NTP and syslog silently could not send | Topology spec §3, Member 4 Configuration 8 |
+
+Finding these yourself and writing them up reads as competence. Leaving them for a marker does
+not.

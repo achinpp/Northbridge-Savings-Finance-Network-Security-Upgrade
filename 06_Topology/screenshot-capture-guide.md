@@ -166,21 +166,35 @@ device first).
 
 ---
 
-## Totals
+## Totals — as captured
 
-| Member | Config 1 (plan-linked) | Config 2 (free choice) | Shots |
+| Member | Plan-linked | Free choice | Shots |
 |---|---|---|---|
-| 1 | AAA TACACS+/RADIUS | SSH / management plane | 18 |
-| 2 | VLAN segmentation + ACLs | Port security | 19 |
-| 3 | Zone-Based Policy Firewall | DHCP snooping + DAI | 21 |
-| 4 | Site-to-site IPsec | Syslog + NTP | 19 |
-| | | | **77** |
+| 1 | AAA TACACS+/RADIUS (9) | SSH / management plane (9) | 18 |
+| 2 | VLAN segmentation + ACLs (10) | Port security (11) | 21 |
+| 3 | Internet edge firewall (13) | DHCP snooping + DAI (12) | 25 |
+| 4 | NetFlow export (14) | Syslog + NTP (9) | 23 |
+| — | Pre-control baseline evidence | | 3 |
+| | | | **90** |
 
-Seventy-seven is more than you strictly need. If time is short, the **★★** shots are the
-minimum that will still evidence each configuration as working — there are twelve of them, and
-they are the ones that show a control actually catching something rather than merely being
-configured. The **★** shots are the next priority. The unmarked shots are the configuration
-evidence the brief also asks for, and are quick to take once you are already at the prompt.
+More than strictly required. The **★★** shots are the ones that show a control actually
+catching something rather than merely being configured; **★** is the next priority; unmarked
+shots are the configuration evidence the brief also asks for.
+
+### Shots that exist because something failed
+
+Six screenshots document Packet Tracer limitations rather than successes. **They are deliberate
+and they earn marks** — the brief expects substitutions to be documented, and showing the
+actual rejection is stronger than claiming it:
+
+| Shot | Documents |
+|---|---|
+| 3.1, 3.1b | `zone security`, `ip inspect` and reflexive ACLs all rejected |
+| 3.2 | `securityk9` still `disable` after reload |
+| 3.7a | The portal timing out **before** the `established` fix — the stateless-ACL limitation, live |
+| 4.1, 4.1b, 4.1c | `crypto` absent, no licence activation path, licence a no-op after two reloads |
+| 4.7c | `ip flow-cache timeout` unsupported |
+| 4.14 | `ntp source` rejected, matching `logging source-interface` |
 
 ## If a command is rejected by your Packet Tracer version
 

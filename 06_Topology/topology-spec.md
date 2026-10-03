@@ -15,10 +15,10 @@ six would only multiply the clicking.
 
 | Device | Model | Role |
 |---|---|---|
-| `HQ-R1` | **ISR 2911** | Head-office edge router, inter-VLAN routing, perimeter firewall (ZPF), IPsec endpoint, NTP master |
+| `HQ-R1` | **ISR 2911** | Head-office edge router, inter-VLAN routing, NAT + edge firewall, NetFlow exporter, NTP master |
 | `HQ-SW1` | **2960-24TT** | Head-office access switch |
 | `MGMT-SW1` | 2960-24TT | Out-of-band management switch |
-| `BR1-R1` | **ISR 2911** | Branch 1 router, IPsec endpoint |
+| `BR1-R1` | **ISR 2911** | Branch 1 router, NetFlow exporter |
 | `BR1-SW1` | 2960-24TT | Branch 1 access switch |
 | `ISP-R1` | 1941 or 2911 | Simulated internet |
 | `CORE-DB` | Server | Core banking database |
@@ -35,10 +35,24 @@ six would only multiply the clicking.
 | `ROGUE-DHCP` | Server | **Added only for Configuration 6's rogue-DHCP test**, then removed |
 | `PC-ROGUE` | PC | **Added only for Configuration 4's port-security violation test** |
 
-> **The router model matters.** Zone-Based Policy Firewall (Configuration 5) and IPsec crypto
-> (Configuration 7) both require an **ISR 2911** with the `securityk9` technology package. They
-> are unavailable on the 1941 and on the generic router in most Packet Tracer versions. Use the
-> 2911 for `HQ-R1` and `BR1-R1` or those two configurations cannot be completed.
+> ### ⚠️ Packet Tracer has no security feature set on this platform
+>
+> The build was planned around a Zone-Based Policy Firewall (Configuration 5) and a site-to-site
+> IPsec VPN (Configuration 7). **Neither is available.** Verified by direct test on the ISR 2911
+> running `C2900-UNIVERSALK9-M 15.1(4)M4`:
+>
+> | Command | Result |
+> |---|---|
+> | `zone security INSIDE` | `% Invalid input` on `zone` |
+> | `ip inspect name FW-DMZ http` | `% Invalid input` on `inspect` |
+> | `permit tcp any any reflect SESSIONS` | `% Invalid input` on `reflect` |
+> | `crypto isakmp policy 10` | `% Invalid input` on `crypto` |
+> | `license ?` (config mode) | offers only `boot` — no activation path exists |
+> | `license boot module c2900 technology-package securityk9` | accepted silently; `show version` still reports `security / disable / None` after **two** reloads |
+>
+> Both configurations were substituted — Configuration 5 became a NAT + edge-ACL perimeter
+> firewall, Configuration 7 became NetFlow export. Still use the **2911**: it has the three
+> GigabitEthernet ports `HQ-R1` needs.
 
 ## 2. VLAN plan
 
@@ -75,14 +89,43 @@ six would only multiply the clicking.
 | `HQ-R1` | `Gi0/0.40` | 10.10.40.1/24 | `encapsulation dot1Q 40` |
 | `HQ-R1` | `Gi0/0.99` | 10.10.99.1/24 | `encapsulation dot1Q 99` |
 | `HQ-R1` | `Gi0/1` | 203.0.113.2/30 | To `ISP-R1`. Zone `OUTSIDE` |
-| `HQ-R1` | `Gi0/2` | 10.10.255.1/30 | WAN to `BR1-R1`. IPsec crypto map applied here |
+| `HQ-R1` | `Gi0/2` | 10.10.255.1/30 | WAN to `BR1-R1`. NetFlow ingress + egress |
 | `BR1-R1` | `Loopback0` | 10.10.2.1/32 | Management address |
 | `BR1-R1` | `Gi0/0` | no IP | Trunk to `BR1-SW1 Gi0/1` |
 | `BR1-R1` | `Gi0/0.110` | 192.168.1.1/24 | `encapsulation dot1Q 110` |
 | `BR1-R1` | `Gi0/0.140` | 192.168.14.1/24 | `encapsulation dot1Q 140` |
-| `BR1-R1` | `Gi0/1` | 10.10.255.2/30 | WAN to `HQ-R1`. IPsec crypto map applied here |
+| `BR1-R1` | `Gi0/1` | 10.10.255.2/30 | WAN to `HQ-R1`. NetFlow ingress + egress |
 | `ISP-R1` | `Gi0/0` | 203.0.113.1/30 | To `HQ-R1` |
 | `ISP-R1` | `Gi0/1` | 198.51.100.1/24 | To `PC-INTERNET` |
+
+### Switch management addresses
+
+**Easy to forget, and nothing works without them.** A Layer 2 switch has no IP presence until
+an SVI is configured, so it cannot originate NTP requests or syslog messages at all — the
+commands apply cleanly and then silently do nothing. This was missed in the original build and
+only surfaced when `show ntp associations` on `BR1-SW1` reported `reach 0`.
+
+| Device | SVI | Address | Default gateway |
+|---|---|---|---|
+| `HQ-SW1` | `Vlan99` | 10.10.99.2/24 | 10.10.99.1 |
+| `MGMT-SW1` | `Vlan99` | 10.10.99.3/24 | 10.10.99.1 |
+| `BR1-SW1` | `Vlan110` | 192.168.1.2/24 | 192.168.1.1 |
+
+```
+interface Vlan99
+ ip address 10.10.99.2 255.255.255.0
+ no shutdown
+ exit
+ip default-gateway 10.10.99.1
+```
+
+> `ip default-gateway`, **not** `ip route` — a Layer 2 switch isn't routing; it needs one
+> next-hop for its own traffic. `ip route` requires `ip routing`, which would make it a Layer 3
+> switch.
+>
+> Head-office switches sit on **VLAN 99**, the out-of-band management segment, which is where
+> Control 9 says management interfaces belong. `BR1-SW1` has no management VLAN and uses
+> `Vlan110` — production would extend the management VLAN to every branch.
 
 ### Hosts and servers
 
@@ -190,9 +233,9 @@ route and is worth doing.
 | 2 — SSH / management plane | 1 | `HQ-R1`, `HQ-SW1` | Apply **first**. The VTY `access-class` restricts management to 10.10.99.0/24 — configure from `PC-ADMIN`, not `PC-HQ1` |
 | 3 — VLANs + inter-VLAN ACLs | 2 | `HQ-SW1`, `HQ-R1` | The `STAFF-IN` ACL denies staff → MGMT. Do not configure devices from `PC-HQ1` after this |
 | 4 — Port security | 2 | `HQ-SW1`, `BR1-SW1` | `maximum 1` on Fa0/1–4. Do not also hang a switch off those ports |
-| 5 — Zone-Based Policy Firewall | 3 | `HQ-R1` | Leave `Gi0/0.99` **out** of any zone or management access breaks. Needs `securityk9` + reload |
+| 5 — Edge firewall (NAT + `EDGE-IN` ACL) | 3 | `HQ-R1` | Applied to `Gi0/1` only. Member 2's `DMZ-IN` needs `permit tcp host 10.10.30.10 any established` or the published portal's replies are dropped |
 | 6 — DHCP snooping + DAI | 3 | `HQ-SW1`, `BR1-SW1` | Trust **only** `Gi0/1`. Servers need the ARP ACL or they go unreachable |
-| 7 — Site-to-site IPsec | 4 | `HQ-R1`, `BR1-R1` | Static routes must exist first. Crypto ACLs must be exact mirrors. Needs `securityk9` |
+| 7 — NetFlow export | 4 | `HQ-R1`, `BR1-R1` | `ip flow ingress` on each interface is separate from the export lines — export without collection yields an empty cache |
 | 8 — Syslog + NTP | 4 | all routers and switches | `Loopback0` must exist before `logging source-interface`. Syslog service must be On |
 
 ## 8. Build order
@@ -208,5 +251,5 @@ route and is worth doing.
 8. Apply **Configuration 7**, then **8** (Member 4).
 9. Capture screenshots per `screenshot-capture-guide.md` as you complete each one — **not at
    the end.** Several verification outputs (ACL match counters, port-security violation
-   counters, DHCP snooping bindings, IPsec packet counters) are only meaningful immediately
+   counters, DHCP snooping bindings, NetFlow cache rows) are only meaningful immediately
    after the test traffic that produced them.

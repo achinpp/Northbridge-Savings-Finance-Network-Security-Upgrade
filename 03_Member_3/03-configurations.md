@@ -5,7 +5,7 @@
 
 Carried out on the shared group topology in `06_Topology/topology-spec.md`.
 Plain-text scripts: `configs/cfg-5-edge-firewall-nat.txt`, `configs/cfg-6-dhcp-snooping-dai.txt`.
-Screenshot sequence: `06_Topology/screenshot-capture-guide.md`, shots 3.1–3.21.
+Screenshot sequence: `06_Topology/screenshot-capture-guide.md`, shots 3.1–3.21 (Configuration 5 uses 3.1–3.11, Configuration 6 uses 3.12–3.21).
 
 ---
 

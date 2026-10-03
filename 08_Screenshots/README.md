@@ -30,6 +30,22 @@ back to the step that produced it, and back to the plain-text script in that mem
 | `M4-cfg7-netflow/` | 4 | NetFlow export (flow-based detection) | **Plan-linked** |
 | `M4-cfg8-syslog-ntp/` | 4 | Centralised syslog and NTP | Free choice |
 
+## Two configurations were substituted
+
+Packet Tracer 8.2 on the ISR 2911 has **no stateful firewall and no cryptography**. Verified by
+direct test — `zone security`, `ip inspect`, reflexive ACLs and `crypto` are all absent from
+the parser, and `license ?` offers no activation path for `securityk9`.
+
+| Planned | Built | Evidence of the limitation |
+|---|---|---|
+| Config 5 — Zone-Based Policy Firewall | Internet edge firewall: static PAT + default-deny `EDGE-IN` ACL | `3.1`, `3.1b`, `3.2` |
+| Config 7 — Site-to-site IPsec VPN | NetFlow export on `HQ-R1` and `BR1-R1` | `4.1`, `4.1b`, `4.1c` |
+
+Both designs remain the recommendation in the group plan; the write-ups state precisely what
+each substitution costs. **Control 12 (encryption in transit) has no implementing
+configuration** and is recorded in the layered security plan as the one control with no
+implementation evidence.
+
 ## `00-BEFORE/` — why it exists
 
 These three show the baseline network *working* in ways it should not, before any control was
@@ -54,14 +70,14 @@ runs short, these are the minimum that evidence each configuration as working.
 |---|---|---|
 | 1.7 | M1 — AAA | Login succeeds for a user that exists **only** on the AAA server |
 | 1.16 | M1 — SSH | Telnet is **refused** |
-| 2.10 | M2 — ACLs | `deny…log` match counters incremented by real blocked traffic |
+| 2.10 | M2 — ACLs | Explicit `deny` match counters incremented by real blocked traffic |
 | 2.16 | M2 — Port security | Port in `Secure-shutdown`, violation count 1 |
 | 3.8 | M3 — Edge FW | Internet cannot reach an internal staff host |
 | 3.9 | M3 — Edge FW | Edge ACL deny counters incremented by refused traffic |
 | 3.19 | M3 — DHCP snooping | Rogue DHCP server present and failing |
-| 3.20 | M3 — DHCP snooping | Snooping drop counters incremented |
+| 3.20 | M3 — DHCP snooping | Binding table contains no rogue-sourced entry after the attack |
 | 4.5 | M4 — NetFlow | Flow cache recording real sessions |
-| 4.7 | M4 — NetFlow | Reconnaissance fan-out: one source, many destinations |
+| 4.7b | M4 — NetFlow | Reconnaissance fan-out: one source, many destinations |
 | 4.16 | M4 — Syslog | Messages arriving with correct source and timestamp |
 | 4.19 | M4 — Syslog | Two devices' events in one ordered timeline |
 
