@@ -155,8 +155,8 @@ write memory
 
 | # | Verification command | What the output must show |
 |---|---|---|
-| 1 | `show ip flow export` | Destination `10.10.99.11` port 2055, version 9, source `Loopback0`, and the export counters |
-| 2 | `show ip flow interface` | Every interface with flow collection enabled, and whether ingress, egress or both |
+| 1 | `show running-config \| include flow` | All three export lines plus every `ip flow ingress` / `ip flow egress` statement — the configuration is stored |
+| 2 | `show ip cache flow` **before traffic** | Cache size, active/inactive counts and flow timeouts, with an empty record table — the cache is **operational**, not merely configured |
 | 3 | `show ip cache flow` **before traffic** | A largely empty flow cache — the "before" half of the pair |
 | 4 | **Generate normal traffic:** from `PC-HQ1`, `ping 10.10.20.11` and browse `https://10.10.20.11` | — |
 | 5 | `show ip cache flow` | Individual flow records with source, destination, protocol, port and packet count. The router is recording who talked to whom, with **no agent on any endpoint and no signature database** |
