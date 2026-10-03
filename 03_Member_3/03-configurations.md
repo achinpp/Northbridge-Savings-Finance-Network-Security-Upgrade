@@ -309,12 +309,12 @@ interface FastEthernet0/10
  exit
 
 ! =========== DYNAMIC ARP INSPECTION ===========
-ip arp inspection vlan 10,20,30,40,99
+ip arp inspection vlan 10,40
 
 ! Additional sanity checks on the ARP packet itself: that the
 ! Ethernet source MAC matches the ARP sender MAC, that the
 ! destination MAC matches, and that the IP is not 0.0.0.0 or multicast.
-ip arp inspection validate src-mac dst-mac ip
+! ip arp inspection validate src-mac dst-mac ip   <- REJECTED by Packet Tracer 8.2
 
 ! --- trust only the uplink; every access port is inspected ---
 interface GigabitEthernet0/1
@@ -383,7 +383,7 @@ write memory
 
 | Command | If unsupported in your PT version |
 |---|---|
-| `ip arp inspection validate src-mac dst-mac ip` | Frequently unsupported — omit and note it as production configuration |
+| `! ip arp inspection validate src-mac dst-mac ip   <- REJECTED by Packet Tracer 8.2` | Frequently unsupported — omit and note it as production configuration |
 | `arp access-list` / `ip arp inspection filter` | Support varies. If rejected, set the server ports to `ip arp inspection trust` instead and **explain in the report that this is a Packet Tracer accommodation, and that an ARP ACL is the correct production answer** — this turns a tool limitation into evidence of understanding |
 | `errdisable recovery cause arp-inspection` | Often unsupported — omit, recover manually |
 | `no ip dhcp snooping information option` | Supported on 2960; keep it, as leaving option 82 on is a common cause of DHCP failing through a relay |
