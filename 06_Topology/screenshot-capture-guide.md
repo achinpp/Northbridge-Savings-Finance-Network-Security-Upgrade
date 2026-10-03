@@ -94,24 +94,25 @@ with secrets `NBtac$2026`/TACACS and `NBrad$2026`/RADIUS; users `alice.perera` /
 | 2.18 | `HQ-SW1` | `show interfaces Fa0/1` | Violation logged with the offending MAC |
 | 2.19 | `HQ-SW1` | Re-attach `PC-HQ1`, then `shutdown` / `no shutdown` | Returns to `Secure-up` |
 
-## Member 3 — Configuration 5: Zone-Based Policy Firewall
+## Member 3 — Configuration 5: Internet edge firewall (static PAT + default-deny edge ACL)
 
-Prerequisite: `securityk9` activated and the router reloaded. Capture `show version` showing
-`securityk9` Active as shot 3.1.
+Substituted for the intended Zone-Based Policy Firewall: Packet Tracer 8.2 on the ISR 2911
+implements no stateful firewall (`zone security`, `ip inspect` and reflexive ACLs are all
+rejected, and the `securityk9` licence command is a no-op). See the configuration write-up.
 
 | Shot | Where | Command | Must show |
 |---|---|---|---|
-| 3.1 | `HQ-R1` | `show version` | `securityk9` listed as Active |
-| 3.2 | `HQ-R1` | `show zone security` | All three zones with member interfaces |
-| 3.3 ★ | `HQ-R1` | `show zone-pair security` | **Exactly three** zone-pairs — and visibly **no** DMZ→INSIDE pair |
-| 3.4 | `HQ-R1` | `show class-map type inspect` | All three class-maps with match criteria |
-| 3.5 | `HQ-R1` | `show policy-map type inspect` | Three policies, each ending `class-default → drop log` |
-| 3.6 | `PC-HQ1` | Browse `https://10.10.30.10` | Portal loads (permitted INSIDE→DMZ) |
-| 3.7 | `PC-INTERNET` | Browse `https://10.10.30.10` | Portal loads (published service reachable) |
-| 3.8 ★★ | `WEB-PORTAL` | `ping 10.10.20.10` | **Fails** — no DMZ→INSIDE zone-pair. This is T5's pivot step blocked |
-| 3.9 ★★ | `WEB-PORTAL` | `ping 8.8.8.8` | **Fails** — no DMZ→OUTSIDE zone-pair. Compromised portal cannot call home |
-| 3.10 ★ | `PC-INTERNET` | `ping 10.10.10.50` | **Fails** — no OUTSIDE→INSIDE pair |
-| 3.11 ★ | `HQ-R1` | `show policy-map type inspect zone-pair sessions` | Active **inspected sessions with state** — proof of stateful inspection, not static filtering |
+| 3.1 | `HQ-R1` | `zone security INSIDE` / `ip inspect name X http` / `ip ?` | **The rejections.** Evidence for the documented substitution — worth capturing, not hiding |
+| 3.2 | `HQ-R1` | `show version` | `security / disable / None` after reload, proving the licence command had no effect |
+| 3.3 | `HQ-R1` | The configuration being entered | NAT boundary, static PAT, `NAT-ALLOWED`, `EDGE-IN` |
+| 3.4 | `HQ-R1` | `show ip nat statistics` | Inside and outside interfaces listed |
+| 3.5 | `HQ-R1` | `show running-config \| include ip nat` | Static PAT entry and the overload entry |
+| 3.6 | `HQ-R1` | `show access-lists EDGE-IN` | All rules in order, **counters at zero** — the "before" half |
+| 3.7 | `PC-INTERNET` | Browse `https://203.0.113.2` | Portal loads — the one published service is reachable |
+| 3.8 ★★ | `PC-INTERNET` | `ping 10.10.10.50` then `ping 10.10.20.10` | **Both fail.** No path from the internet to any internal host |
+| 3.9 ★★ | `HQ-R1` | `show access-lists EDGE-IN` | `deny ip any 10.10.0.0 0.0.255.255` with a **non-zero** match count. Before/after with 3.6 |
+| 3.10 ★ | `HQ-R1` | `show ip nat translations` | The live translation carrying the portal session |
+| 3.11 | `PC-HQ1` | `ping 198.51.100.50`, then `show ip nat translations` on `HQ-R1` | Outbound PAT hiding internal addressing |
 
 ## Member 3 — Configuration 6: DHCP snooping and Dynamic ARP Inspection
 

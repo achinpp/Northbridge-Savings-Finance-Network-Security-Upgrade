@@ -53,7 +53,7 @@ kept genuinely separate rather than blended.
 | 2 | 1 | SSH and management-plane hardening | No (free choice) | — |
 | 3 | 2 | VLAN segmentation + inter-VLAN extended ACLs | **Yes** | Control 5 — addresses T3, T4 |
 | 4 | 2 | Switchport port security (sticky MAC + violation shutdown) | No (free choice) | — |
-| 5 | 3 | Zone-Based Policy Firewall (Outside / DMZ / Inside) | **Yes** | Control 5 + 6 — addresses T5, T6 |
+| 5 | 3 | Internet edge firewall — static PAT + default-deny edge ACL | **Yes** | Control 5 + 18 — addresses T5, T6 |
 | 6 | 3 | DHCP snooping + Dynamic ARP Inspection | No (free choice) | — |
 | 7 | 4 | Site-to-site IPsec VPN, head office ↔ branch | **Yes** | Control 12 — addresses T4 |
 | 8 | 4 | Centralised syslog + NTP time synchronisation | No (free choice) | — |

@@ -69,8 +69,8 @@ Maximum marks: 100 · Contribution to final grade: 30%
   AAA — FreeRADIUS, OpenLDAP, privacyIDEA and `tac_plus`. Architecture — dual-firewall DMZ
   sandwich with a partner extranet, integration broker and out-of-band management network.
   IDS/IPS — Suricata inline plus Zeek metadata feeding a Wazuh/Elastic SIEM.
-- **Hardening configurations (Section 8.3):** **Configuration 5 (plan-linked)** — Zone-Based
-  Policy Firewall across OUTSIDE / DMZ / INSIDE, implementing Control 5.
+- **Hardening configurations (Section 8.3):** **Configuration 5 (plan-linked)** — internet edge
+  firewall: static PAT publishing plus a default-deny edge ACL, implementing Control 5.
   **Configuration 6 (free choice)** — DHCP snooping and Dynamic ARP Inspection.
 - **Proposals adopted by the group:** network architecture. Also adopted: the requirement for
   local fallback credentials and a tested rebuild procedure in Control 1, the small-and-static

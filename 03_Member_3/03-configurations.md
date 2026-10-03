@@ -1,241 +1,186 @@
 # Member 3 — Individual Network Hardening Configurations
 
 **Member:** [Member 3 — Full Name / IT Number]
-**Configurations:** #5 Zone-Based Policy Firewall (plan-linked) · #6 DHCP snooping and Dynamic ARP Inspection (free choice)
+**Configurations:** #5 Internet edge firewall — static PAT + default-deny edge ACL (plan-linked) · #6 DHCP snooping and Dynamic ARP Inspection (free choice)
 
 Carried out on the shared group topology in `06_Topology/topology-spec.md`.
-Plain-text scripts: `configs/cfg-5-zone-based-firewall.txt`, `configs/cfg-6-dhcp-snooping-dai.txt`.
+Plain-text scripts: `configs/cfg-5-edge-firewall-nat.txt`, `configs/cfg-6-dhcp-snooping-dai.txt`.
 Screenshot sequence: `06_Topology/screenshot-capture-guide.md`, shots 3.1–3.21.
 
 ---
 
-## Configuration 5 — Zone-Based Policy Firewall (OUTSIDE / DMZ / INSIDE)
+## Configuration 5 — Internet edge firewall: static PAT publishing and a default-deny edge ACL
 
-**Device:** `HQ-R1`, acting as the head-office perimeter firewall
-**Requires:** an ISR router model (2911 or similar) with the `securityk9` technology package
+**Device:** `HQ-R1`, interface `GigabitEthernet0/1` (OUTSIDE)
+
+### A note on what was intended, and why this differs
+
+My technology proposal (A3.3) and the group's adopted architecture specify a **stateful**
+dual-firewall DMZ sandwich. The intended Packet Tracer implementation was a **Zone-Based Policy
+Firewall** — `zone security`, `class-map type inspect`, `policy-map type inspect`, `zone-pair`.
+
+**Packet Tracer 8.2 on the ISR 2911 implements no stateful firewall of any kind.** This was
+established by direct test rather than assumed:
+
+| Command | Result |
+|---|---|
+| `zone security INSIDE` | `% Invalid input detected` |
+| `ip inspect name FW-DMZ http` | `% Invalid input detected` |
+| `permit tcp any any reflect SESSIONS` | `% Invalid input detected` |
+| `ip ?` | no `inspect` keyword in the parser |
+| `license boot module c2900 technology-package securityk9` | accepted silently, but `show version` still reports `security / disable / None` for *Next reboot* after a reload — the command is a no-op |
+
+This configuration therefore implements the **same perimeter policy** using the tools the
+platform does provide: static PAT for publishing, and an extended ACL for default-deny inbound.
+
+**What the substitution costs, stated precisely.** A zone firewall *inspects a session* and
+permits its return traffic automatically. A static ACL cannot, so return traffic has to be
+permitted by rule using the `established` keyword — which only checks whether the TCP ACK or
+RST flag is set. An attacker who crafts a packet with ACK set passes that rule; a stateful
+firewall would reject it, because no matching session exists in its state table. UDP and ICMP
+are worse still, having no `established` equivalent, so their return traffic must be permitted
+by protocol and type — broader than a session table would allow.
+
+That gap is exactly why the group's plan specifies next-generation firewalls at both tiers
+rather than router ACLs, and it is worth stating rather than glossing: the demonstrable
+configuration is weaker than the recommended one, in a way I can name.
 
 ### What this configuration achieves
 
-It converts the head-office router from a packet forwarder with an access list into a
-**stateful firewall with named trust zones**. The difference is not cosmetic. An access list
-evaluates each packet independently against a static rule; a zone-based policy firewall
-**inspects** a session, builds state for it, and automatically permits the return traffic
-belonging to that session while denying unsolicited traffic in the same direction.
+It establishes an explicit, enforced boundary between Northbridge and the internet, where
+previously the brief describes only "the basic firewall/router functionality built into its
+internet-facing router".
 
-Three consequences matter for Northbridge:
+Three mechanisms, and they matter in combination:
 
-1. **Return traffic no longer needs a rule.** With ACLs, permitting outbound HTTP requires a
-   matching inbound permit for the replies — and that inbound permit is a hole an attacker can
-   use. With inspection, the reply is permitted because it belongs to a tracked session, and
-   nothing else is.
-2. **Default-deny becomes the structural default.** In the zone-based model, traffic between
-   two zones is dropped unless a `zone-pair` exists and its policy permits it. The absence of
-   a rule is a denial, not an accident. Northbridge currently has the inverse: a flat network
-   where the absence of a rule is permission.
-3. **Zones are named after trust levels, not interfaces.** A new branch interface added to the
-   `INSIDE` zone inherits the whole policy immediately, rather than needing its own ACL —
-   which matters for an organisation with six branches and no change-control discipline.
+1. **A declared NAT boundary.** `ip nat inside` and `ip nat outside` make the perimeter an
+   explicit property of the configuration rather than something implied by routing.
+2. **Publishing by exception.** Static PAT maps **one** public socket to **one** internal
+   socket: `203.0.113.2:443 → 10.10.30.10:443`. The online banking portal becomes the only
+   system in the estate with any inbound path from the internet, on one port. Every other
+   internal host is unreachable from outside **by construction** — no translation exists for
+   them, so an inbound packet has nowhere to be delivered even before the ACL is consulted.
+3. **Default-deny inbound.** `EDGE-IN` permits the published service and return traffic, then
+   explicitly denies internet-to-internal and everything else.
 
-The policy implemented:
-
-| Zone pair | Direction | Policy |
-|---|---|---|
-| `INSIDE → OUTSIDE` | Outbound | Inspect HTTP, HTTPS, DNS, ICMP — staff internet access, stateful |
-| `INSIDE → DMZ` | Inbound to DMZ | Inspect HTTPS only — staff may use the portal |
-| `OUTSIDE → DMZ` | Public access | Inspect HTTPS **to the portal host only** — the one published service |
-| `DMZ → INSIDE` | — | **No zone-pair.** Implicitly and completely denied |
-| `OUTSIDE → INSIDE` | — | **No zone-pair.** Implicitly and completely denied |
-| `DMZ → OUTSIDE` | — | **No zone-pair.** A compromised web server cannot call home |
-| Self zone | Management | SSH from `MGMT-OOB` only |
-
-The three deliberately absent zone-pairs are the most important part of this configuration,
-and they should be called out explicitly in the report: **a policy you do not write is a
-policy that denies.** `DMZ → INSIDE` being absent is what stops T5's pivot step, and
-`DMZ → OUTSIDE` being absent is what stops a compromised portal from exfiltrating or
-retrieving a second-stage payload.
+**Outbound PAT deliberately excludes VLAN 20.** The core banking servers have no business
+initiating connections to the internet, so they are omitted from the `NAT-ALLOWED` list — the
+same principle as the DMZ egress restriction in the group's design, applied at the perimeter.
 
 ### Plan linkage and threats addressed
 
-This implements **Control 5 (zoned network architecture with two firewall tiers and
-default-deny inter-zone policy)** from the group's combined layered security plan, and
-contributes to **Control 18 (third-party and partner security assurance)**, whose technical
-half requires partner traffic to terminate in its own zone rather than on the internal
-network. It is the Packet Tracer realisation of the DMZ-sandwich architecture the group
-adopted from my proposal A3.3.
+Implements **Control 5** (zoned architecture with default-deny at the perimeter) and the
+technical half of **Control 18** (partner traffic terminating at a controlled boundary rather
+than on the internal network).
 
-> A note on control numbering, since the group plan went through a minimisation pass. My
-> original submission referenced a separate control for "next-generation firewall policy with
-> default-deny between zones". That control was merged into Control 5 during minimisation,
-> because the zone structure and the default-deny policy that governs it are one deployment
-> and not two — the reasoning is recorded in the minimisation write-up. This configuration
-> implements both halves of the merged control.
-
-- **T5 (SQL injection against the online banking portal):** this configuration does not fix
-  the injectable parameter — only code remediation and a WAF do that. What it fixes is **every
-  step after step 3 of T5's attack chain.** T5's escalation depends on the web tier sitting in
-  the same trust space as the internal network; placing the portal in a `DMZ` zone with no
-  `DMZ → INSIDE` and no `DMZ → OUTSIDE` zone-pair means a fully compromised web server is a
-  dead end. The database breach remains possible; the network foothold and the outbound
-  exfiltration channel do not.
-- **T6 (abuse of the third-party payment processor connection):** the same structure gives the
-  partner connection somewhere to terminate that is not the internal network. The `DMZ` zone
-  in this Packet Tracer build stands in for the `PARTNER-EXTRANET` and
-  `INTEGRATION-BROKER` zones of the full design, which a two-interface router cannot represent
-  separately.
+- **T5 — SQL injection against the online banking portal.** This does not fix the injectable
+  parameter; only code remediation and a WAF do that (Control 11). What it fixes is the
+  *blast radius*. The portal is published on one socket, so nothing else in the estate is
+  internet-reachable, and a compromised web tier has no inbound path to pivot through.
+- **T6 — abuse of the third-party payment processor connection.** The same structure gives the
+  partner integration a controlled place to terminate. In the full design that is the
+  `PARTNER-EXTRANET` zone and the integration broker; on a two-interface router the published-
+  socket model stands in for it.
 
 ### Command sequence
+
+Full script with comments: `configs/cfg-5-edge-firewall-nat.txt`.
 
 ```
 enable
 configure terminal
 
-! --- licensing: ZPF requires the security technology package ---
-! (run once, then reload; skip if already active)
-license boot module c2900 technology-package securityk9
-
-! =========== STEP 1: define the zones ===========
-zone security INSIDE
- description Trusted internal staff and server networks
- exit
-zone security OUTSIDE
- description Untrusted - the public internet
- exit
-zone security DMZ
- description Semi-trusted - public facing online banking portal
- exit
-
-! =========== STEP 2: classify the traffic ===========
-class-map type inspect match-any CM-INSIDE-TO-OUT
- match protocol http
- match protocol https
- match protocol dns
- match protocol icmp
- exit
-
-class-map type inspect match-any CM-WEB-ONLY
- match protocol https
- exit
-
-! Only the published portal host, and only HTTPS.
-ip access-list extended ACL-PORTAL
- permit tcp any host 10.10.30.10 eq 443
- exit
-
-class-map type inspect match-all CM-OUT-TO-PORTAL
- match access-group name ACL-PORTAL
- match protocol https
- exit
-
-! =========== STEP 3: define the policies ===========
-policy-map type inspect PM-INSIDE-TO-OUT
- class type inspect CM-INSIDE-TO-OUT
-  inspect
-  exit
- class class-default
-  drop log
-  exit
- exit
-
-policy-map type inspect PM-INSIDE-TO-DMZ
- class type inspect CM-WEB-ONLY
-  inspect
-  exit
- class class-default
-  drop log
-  exit
- exit
-
-policy-map type inspect PM-OUT-TO-DMZ
- class type inspect CM-OUT-TO-PORTAL
-  inspect
-  exit
- class class-default
-  drop log
-  exit
- exit
-
-! =========== STEP 4: bind policies to zone pairs ===========
-zone-pair security ZP-INSIDE-OUT source INSIDE destination OUTSIDE
- service-policy type inspect PM-INSIDE-TO-OUT
- exit
-
-zone-pair security ZP-INSIDE-DMZ source INSIDE destination DMZ
- service-policy type inspect PM-INSIDE-TO-DMZ
- exit
-
-zone-pair security ZP-OUT-DMZ source OUTSIDE destination DMZ
- service-policy type inspect PM-OUT-TO-DMZ
- exit
-
-! NOTE: ZP-DMZ-INSIDE, ZP-DMZ-OUT and ZP-OUT-INSIDE are
-! DELIBERATELY NOT CREATED. Traffic in those directions is dropped
-! by the zone-based model's implicit default. This is the control.
-
-! =========== STEP 5: assign interfaces to zones ===========
+! --- declare the NAT boundary ---
 interface GigabitEthernet0/1
- description To ISP - untrusted
- ip address 203.0.113.2 255.255.255.252
- zone-member security OUTSIDE
- no shutdown
+ description OUTSIDE - to ISP - untrusted
+ ip nat outside
  exit
-
 interface GigabitEthernet0/0.10
- description STAFF-HQ
- zone-member security INSIDE
+ ip nat inside
  exit
-
 interface GigabitEthernet0/0.20
- description CORE-BANKING
- zone-member security INSIDE
+ ip nat inside
+ exit
+interface GigabitEthernet0/0.30
+ ip nat inside
+ exit
+interface GigabitEthernet0/0.40
+ ip nat inside
  exit
 
-interface GigabitEthernet0/0.30
- description DMZ - online banking portal
- zone-member security DMZ
+! --- publish the portal, and nothing else ---
+ip nat inside source static tcp 10.10.30.10 443 203.0.113.2 443
+
+! --- outbound PAT: staff and guest only, never core banking ---
+ip access-list extended NAT-ALLOWED
+ remark Staff and guest may browse out; core banking may not
+ permit ip 10.10.10.0 0.0.0.255 any
+ permit ip 10.10.40.0 0.0.0.255 any
+ deny   ip any any
+ exit
+ip nat inside source list NAT-ALLOWED interface GigabitEthernet0/1 overload
+
+! --- the edge ACL: default-deny inbound ---
+ip access-list extended EDGE-IN
+ remark The only published service - online banking portal over HTTPS
+ permit tcp any host 203.0.113.2 eq 443
+ remark Return traffic for sessions initiated from inside
+ permit tcp any any established
+ permit udp any eq 53 any
+ permit icmp any any echo-reply
+ permit icmp any any unreachable
+ permit icmp any any time-exceeded
+ remark No path from the internet to any internal network
+ deny   ip any 10.10.0.0 0.0.255.255
+ remark Default deny
+ deny   ip any any
+ exit
+
+interface GigabitEthernet0/1
+ ip access-group EDGE-IN in
  exit
 
 end
 write memory
 ```
 
-> **A trap worth knowing and worth writing up.** The moment an interface is placed in a zone,
-> all traffic to and from it is denied unless a zone-pair permits it — *including* traffic to
-> the router itself, unless the `self` zone is handled. Two interfaces in the **same** zone
-> pass traffic freely with no policy, which is why `STAFF-HQ` and `CORE-BANKING` both being in
-> `INSIDE` means this configuration does **not** filter between them. That is intentional
-> here: internal segmentation between those two is Member 2's Configuration 3 (inter-VLAN
-> ACLs) and, in the full design, the internal firewall tier. Stating this division of labour
-> in the report shows the two configurations were designed to complement rather than duplicate
-> each other.
+> **Why the explicit `deny ip any 10.10.0.0 0.0.255.255` when the final deny would catch it
+> anyway.** The implicit deny at the end of every ACL has no visible match counter. Writing the
+> internet-to-internal block as its own line creates a countable rule, so it can be *shown*
+> refusing real traffic. That is the difference between evidencing a control and configuring
+> one — the same reasoning behind the explicit denies in Member 2's Configuration 3.
+>
+> **Why the test is constructed as it is.** `ISP-R1` holds a static route for `10.10.0.0/16`,
+> added when the topology was built. That is deliberate: without it, a ping from the internet to
+> an internal host would fail because the ISP had nowhere to send it, which proves nothing about
+> this firewall. With the route in place the packet genuinely arrives at `HQ-R1` and is refused
+> there, so the only thing that can block it is the control being tested.
 
 ### Verification commands and expected output
 
 | # | Verification command | What the output must show |
 |---|---|---|
-| 1 | `show zone security` | All three zones with their member interfaces listed |
-| 2 | `show zone-pair security` | Exactly three zone-pairs, each with its service-policy — and visibly **no** DMZ-to-INSIDE pair |
-| 3 | `show class-map type inspect` | All three inspect class-maps with their match criteria |
-| 4 | `show policy-map type inspect` | The three policies, each ending in `class-default → drop log` |
-| 5 | **Positive test:** from `PC-HQ1` (INSIDE), browse `https://10.10.30.10` | Portal loads — the permitted INSIDE→DMZ flow works |
-| 6 | **Positive test:** from `PC-INTERNET` (OUTSIDE), browse `https://10.10.30.10` | Portal loads — the published service is reachable from the internet |
-| 7 | **Negative test (the key shot):** from `WEB-PORTAL` in the DMZ, `ping 10.10.20.10` | **Fails.** No `DMZ → INSIDE` zone-pair exists. This is T5's pivot step being blocked |
-| 8 | **Negative test:** from `WEB-PORTAL`, `ping 8.8.8.8` | **Fails.** No `DMZ → OUTSIDE` zone-pair. A compromised portal cannot call home |
-| 9 | **Negative test:** from `PC-INTERNET`, `ping 10.10.10.50` | Fails — no `OUTSIDE → INSIDE` pair |
-| 10 | `show policy-map type inspect zone-pair sessions` | Active inspected sessions listed with their state, after the positive tests — this is the proof that **stateful inspection** is running, not just filtering |
+| 1 | `show ip nat statistics` | Inside and outside interfaces listed, with translation counts |
+| 2 | `show running-config \| include ip nat` | The static PAT entry and the overload entry |
+| 3 | `show access-lists EDGE-IN` | All rules in order, **counters at zero** — the "before" half of the pair |
+| 4 | **Positive test:** from `PC-INTERNET`, browse `https://203.0.113.2` | The portal loads — the published service is reachable on its public socket |
+| 5 | `show ip nat translations` | The static entry plus the live session, e.g. `tcp 203.0.113.2:443 10.10.30.10:443 198.51.100.50:1025`. Proof the translation is carrying traffic, not merely configured |
+| 6 | **Negative test:** from `PC-INTERNET`, `ping 10.10.10.50` | **Fails** — denied by `EDGE-IN` |
+| 7 | **Negative test:** from `PC-INTERNET`, `ping 10.10.20.10` | **Fails** — core banking unreachable from the internet |
+| 8 | **Positive test:** from `PC-HQ1`, `ping 198.51.100.50` | Succeeds — outbound PAT plus the `echo-reply` permit |
+| 9 | `show ip nat translations` | An ICMP translation from `10.10.10.50` to `203.0.113.2`, proving internal addressing is hidden on the way out |
+| 10 | `show access-lists EDGE-IN` | `deny ip any 10.10.0.0 0.0.255.255` now has a **non-zero** match count from steps 6 and 7, and the 443 permit has counted the portal session. Paired with step 3 at zero, a complete before/after on one command |
 
-> Shot 10 is the one that distinguishes this configuration from an ACL. Shots 7 and 8 are the
-> ones that demonstrate the deliberately-absent zone-pairs are doing real work.
+> Steps 5 and 10 are the two that carry the marks. Step 5 shows address translation actually
+> happening; step 10 shows the perimeter refusing real traffic.
 
-### Packet Tracer requirements and limitations
+### Division of labour with Member 2's Configuration 3
 
-| Item | Note |
-|---|---|
-| Router model | Must be an ISR (2911 recommended). ZPF is **not** available on the 1941 or on the generic router in some PT versions |
-| `license boot module c2900 technology-package securityk9` | Required once, followed by `write memory` and `reload`. Verify with `show version` — look for `securityk9` as Active |
-| `match protocol` names | PT supports a subset. If `https` is rejected, match an access-group on TCP 443 instead |
-| `drop log` | If `log` is rejected, use plain `drop` and note the substitution |
-| `self` zone policy | PT support is inconsistent. If management access to the router breaks after zoning, leave the management subinterface **out** of any zone — an unzoned interface is unaffected by zone policy — and state this as a Packet Tracer accommodation |
-| `show policy-map type inspect zone-pair sessions` | If unsupported, use `show policy-map type inspect zone-pair` and rely on the live positive/negative tests |
+Worth stating explicitly, because both configurations use extended ACLs. Member 2's filters
+**internal zone-to-zone** traffic on the router subinterfaces. This one filters traffic crossing
+the **internet perimeter** on the WAN interface, and adds address translation. Different
+interface, different threat direction, different mechanism — two complementary enforcement
+points in one layered design, not duplicates.
 
 ---
 

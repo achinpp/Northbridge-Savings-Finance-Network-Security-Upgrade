@@ -25,7 +25,7 @@ back to the step that produced it, and back to the plain-text script in that mem
 | `M1-cfg1-aaa/` | 1 | AAA with TACACS+ and RADIUS | **Plan-linked** |
 | `M2-cfg3-vlan-acl/` | 2 | VLAN segmentation with inter-VLAN ACLs | **Plan-linked** |
 | `M2-cfg4-port-security/` | 2 | Switchport port security | Free choice |
-| `M3-cfg5-zone-firewall/` | 3 | Zone-Based Policy Firewall | **Plan-linked** |
+| `M3-cfg5-edge-firewall/` | 3 | Internet edge firewall (static PAT + edge ACL) | **Plan-linked** |
 | `M3-cfg6-dhcp-snoop-dai/` | 3 | DHCP snooping and Dynamic ARP Inspection | Free choice |
 | `M4-cfg7-ipsec/` | 4 | Site-to-site IPsec VPN | **Plan-linked** |
 | `M4-cfg8-syslog-ntp/` | 4 | Centralised syslog and NTP | Free choice |
@@ -56,8 +56,8 @@ runs short, these are the minimum that evidence each configuration as working.
 | 1.16 | M1 — SSH | Telnet is **refused** |
 | 2.10 | M2 — ACLs | `deny…log` match counters incremented by real blocked traffic |
 | 2.16 | M2 — Port security | Port in `Secure-shutdown`, violation count 1 |
-| 3.8 | M3 — ZPF | DMZ server cannot reach the core database |
-| 3.9 | M3 — ZPF | DMZ server cannot call home to the internet |
+| 3.8 | M3 — Edge FW | Internet cannot reach an internal staff host |
+| 3.9 | M3 — Edge FW | Edge ACL deny counters incremented by refused traffic |
 | 3.19 | M3 — DHCP snooping | Rogue DHCP server present and failing |
 | 3.20 | M3 — DHCP snooping | Snooping drop counters incremented |
 | 4.6 | M4 — IPsec | `#pkts encaps` non-zero — traffic genuinely encrypted |

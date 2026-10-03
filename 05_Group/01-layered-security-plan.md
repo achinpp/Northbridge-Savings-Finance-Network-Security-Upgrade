@@ -195,7 +195,8 @@ VLANs), `GUEST`, `MGMT-OOB`. Default-deny between all zones with explicit, owned
 allow rules. The internal tier carries a deliberately small and static rule set. Branch sites
 receive their own VLAN sets so that a compromise at one branch is contained to that branch.
 Guest Wi-Fi terminates on the external tier and has no route to any internal zone.
-*Implemented by Configuration 3 (Member 2) and Configuration 5 (Member 3).*
+*Implemented by Configuration 3 (Member 2) at the internal zone boundaries, and Configuration 5
+(Member 3) at the internet perimeter.*
 
 **Control 6 — Layer 2 access hardening baseline on every access switch**
 A single standard configuration applied to every access switch at all seven sites: 802.1X
@@ -300,8 +301,8 @@ audit. Technically: mutual TLS with certificate pinning, IP allow-listing, partn
 terminating in `PARTNER-EXTRANET` and reaching the core only through the validating integration
 broker, input validation on every partner-supplied message, and transaction rate and value
 anomaly alerting into Control 8.
-*Technical half partly implemented by Configuration 5 (Member 3), whose DMZ zone stands in for
-the partner extranet on a two-interface router.*
+*Technical half partly implemented by Configuration 5 (Member 3), whose published-socket model
+stands in for the partner extranet on a two-interface router.*
 
 ---
 
