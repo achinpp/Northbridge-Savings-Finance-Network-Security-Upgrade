@@ -311,6 +311,28 @@ stands in for the partner extranet on a two-interface router.*
 
 ---
 
+## 2b. A gap the practical work exposed
+
+Controls 1, 2, 3 and 9 all specify **every** router, switch and firewall. The Packet Tracer
+build demonstrates them on `HQ-R1` only. `BR1-R1` was found during Configuration 7's branch
+test to have **no authentication at all** — `enable` returns a privileged prompt with no
+password, no AAA, no `login local`, no VTY access-class and no banner.
+
+That is not a defect in the configurations; it is the controls not yet having been rolled out
+estate-wide. But it is worth recording, because the branch is the worst place for it to be
+true. The brief states branch network cabinets were found unlocked in at least two locations
+and that visitor sign-in is inconsistently enforced — so the device with no authentication sits
+at the site with the weakest physical control, which is precisely the compound exposure T2 and
+T8 describe.
+
+It also illustrates why Control 1 specifies a *central* authority rather than per-device
+accounts: with local credentials, hardening seven sites means seven separate pieces of work
+that can each be forgotten. With ISE and TACACS+, a device either enrols or it does not, and
+the ones that have not are visible in one place.
+
+**Remediation:** Member 1's Configurations 1 and 2 applied to `BR1-R1`, `BR1-SW1`, `HQ-SW1` and
+`MGMT-SW1` as a Phase 2 task, with an enrolment checklist per device.
+
 ## 3. Residual risk after the plan
 
 | Threat | Before | After full implementation | What remains |
