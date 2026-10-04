@@ -198,6 +198,17 @@ def render_markdown(doc, md, heading_offset=0, drop_h1=False):
                         add_runs(p, " ".join(para.split("\n")))
             continue
 
+        # inline image
+        m = re.match(r"^!\[(.*?)\]\((.+?)\)\s*$", stripped)
+        if m:
+            alt, path = m.group(1), m.group(2)
+            if os.path.exists(path):
+                doc.add_picture(path, width=Inches(6.5))
+                doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                FIG["n"] += 1
+                cp = doc.add_paragraph(style="Caption2"); add_runs(cp, f"Figure {FIG['n']} — {alt}")
+            i += 1; continue
+
         # horizontal rule
         if re.match(r"^(---|\*\*\*|___)\s*$", stripped):
             i += 1; continue
@@ -462,8 +473,8 @@ def main():
     # ---- 10 topology
     h1(doc, "10. Topology Used for the Practical Work")
     render_markdown(doc, read("06_Topology/topology-spec.md"), heading_offset=1, drop_h1=True)
-    if os.path.exists("topology-diagram.png"):
-        doc.add_picture("topology-diagram.png", width=Inches(6.5))
+    if os.path.exists("06_Topology/topology-diagram.png"):
+        doc.add_picture("06_Topology/topology-diagram.png", width=Inches(6.5))
         doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
         FIG["n"] += 1
         c = doc.add_paragraph(style="Caption2")

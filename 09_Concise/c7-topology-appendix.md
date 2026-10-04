@@ -9,6 +9,8 @@ needed. `ISP-R1` is a 1941 simulating the internet. Five servers, `CORE-DB`, `CO
 `WEB-PORTAL`, `AAA-SRV` and `SYSLOG-SRV`, plus seven PCs covering staff, guest, management,
 branch and an external attacker. Eighteen devices, seventeen cables.
 
+![The Packet Tracer topology as built. Head office left and centre, the out of band management segment lower left, and Branch 1 on the right. Dashed links are cross over cables, solid links straight through.](06_Topology/topology-diagram.png)
+
 **Zones and addressing.**
 
 | VLAN | Name | Subnet | Gateway | Ports on HQ-SW1 |

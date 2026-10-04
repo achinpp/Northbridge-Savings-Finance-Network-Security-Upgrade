@@ -158,14 +158,10 @@ choose to share.
 ### Note on the distribution
 
 Technical Preventive is the most populated cell with thirteen controls, and the Physical column
-the least with two controls across six cells. That reflects the brief rather than an oversight.
-Northbridge's investment has gone almost entirely into physical measures, so it already has
-physical security capability. The plan adds the specific physical controls it is missing, server
-room access control and cameras, locked branch cabinets, and offsite backup media, rather than
-rebuilding a physical security programme from nothing.
-
-The Recovery row is the thinnest, holding only Control 16. Splitting backups out as a separate
-control was considered and deliberately rejected. The reasoning is in Section 6.
+the least. That reflects the brief rather than an oversight, since Northbridge already has
+physical security capability and the plan adds only what it is missing. The Recovery row is the
+thinnest, holding only Control 16, and splitting backups out as a separate control was considered
+and deliberately rejected, for the reasons given in Section 6.
 
 ---
 

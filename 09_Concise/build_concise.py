@@ -25,15 +25,15 @@ IMG_W = 2.95
 # ------------------------------------------------------------- selection
 
 SHOTS = {
- "00-BEFORE": ["guest-to-coredb", "internet-to-staff"],
- "M1-cfg1-aaa": ["1.7-", "1.9-"],
- "M1-cfg2-ssh-mgmt": ["1.16-", "1.18-"],
- "M2-cfg3-vlan-acl": ["2.8-", "2.10-"],
- "M2-cfg4-port-security": ["2.16-", "2.19-"],
+ "00-BEFORE": ["guest-to-coredb", "internet-to-staff", "dmz-to-coredb"],
+ "M1-cfg1-aaa": ["1.1-", "1.7-", "1.9-"],
+ "M1-cfg2-ssh-mgmt": ["1.13-", "1.16-", "1.18-"],
+ "M2-cfg3-vlan-acl": ["2.7-", "2.8-", "2.10-"],
+ "M2-cfg4-port-security": ["2.11-", "2.16-", "2.19-"],
  "M3-cfg5-edge-firewall": ["3.1-", "3.7-p", "3.8-", "3.9-"],
  "M3-cfg6-dhcp-snoop-dai": ["3.13-", "3.19-", "3.20-b"],
  "M4-cfg7-netflow": ["4.1-", "4.5-", "4.7b-"],
- "M4-cfg8-syslog-ntp": ["4.16-", "4.19-"],
+ "M4-cfg8-syslog-ntp": ["4.12-n", "4.16-", "4.19-"],
 }
 
 GROUPS = [
@@ -239,6 +239,16 @@ def render(doc, md, off=0, drop_h1=False):
                         p = doc.add_paragraph(style="Note"); runs(p, " ".join(para.split("\n")))
             continue
 
+        m = re.match(r"^!\[(.*?)\]\((.+?)\)\s*$", s)
+        if m:
+            alt, path = m.group(1), m.group(2)
+            if os.path.exists(path):
+                pic = doc.add_paragraph(); pic.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                pic.add_run().add_picture(path, width=Inches(6.6))
+                FIG["n"] += 1
+                cp = doc.add_paragraph(style="Cap"); runs(cp, f"Figure {FIG['n']}. {alt}")
+            i += 1; continue
+
         if re.match(r"^(---|\*\*\*|___)\s*$", s): i += 1; continue
 
         m = re.match(r"^(\s*)([-*+]|\d+\.)\s+(.*)$", line)
@@ -336,13 +346,9 @@ def main():
     setup(doc)
 
     render(doc, read(f"{SRC}/c1-front.md"))
-    pbreak(doc)
     render(doc, read(f"{SRC}/c2-threats.md"))
-    pbreak(doc)
     render(doc, read(f"{SRC}/c3-plan.md"))
-    pbreak(doc)
     render(doc, read(f"{SRC}/c4-tables.md"))
-    pbreak(doc)
     render(doc, read(f"{SRC}/c5-configs.md"))
 
     # screenshots
@@ -355,9 +361,7 @@ def main():
         for folder, title in cfgs:
             total += image_grid(doc, pick(folder), title)
 
-    pbreak(doc)
     render(doc, read(f"{SRC}/c6-evaluation.md"))
-    pbreak(doc)
     render(doc, read(f"{SRC}/c7-topology-appendix.md"))
 
     # appendix B
